@@ -13,6 +13,7 @@ from django.apps import apps
 from django.conf import settings
 from django.db import connection
 from django.test import TestCase, TransactionTestCase
+from django.test.runner import default_test_processes
 from django.test.utils import get_runner
 from django.utils import six
 from django.utils._os import upath
@@ -98,8 +99,10 @@ def get_installed():
     return [app_config.name for app_config in apps.get_app_configs()]
 
 
-def setup(verbosity, test_labels):
-    print("Testing against Django installed in '%s'" % os.path.dirname(django.__file__))
+def setup(verbosity, test_labels, parallel):
+    if verbosity >= 1:
+        print("Testing against Django installed in '%s' with %d processes" % (
+            os.path.dirname(django.__file__), parallel))
 
     # Force declaring available_apps in TransactionTestCase for faster tests.
     def no_available_apps(self):
@@ -227,8 +230,9 @@ def teardown(state):
         setattr(settings, key, value)
 
 
-def django_tests(verbosity, interactive, failfast, keepdb, reverse, test_labels, debug_sql):
-    state = setup(verbosity, test_labels)
+def django_tests(verbosity, interactive, failfast, keepdb, reverse,
+                 test_labels, debug_sql, parallel):
+    state = setup(verbosity, test_labels, parallel)
     extra_tests = []
 
     if test_labels and 'postgres_tests' in test_labels and connection.vendor != 'postgresql':
@@ -248,6 +252,7 @@ def django_tests(verbosity, interactive, failfast, keepdb, reverse, test_labels,
         keepdb=keepdb,
         reverse=reverse,
         debug_sql=debug_sql,
+        parallel=parallel,
     )
     # Catch warnings thrown in test DB setup -- remove in Django 1.9
     with warnings.catch_warnings():
@@ -401,10 +406,15 @@ if __name__ == "__main__":
              'is localhost:8081.')
     parser.add_argument(
         '--selenium', action='store_true', dest='selenium', default=False,
-        help='Run the Selenium tests as well (if Selenium is installed)')
+        help='Run the Selenium tests as well (if Selenium is installed).')
     parser.add_argument(
         '--debug-sql', action='store_true', dest='debug_sql', default=False,
-        help='Turn on the SQL query logger within tests')
+        help='Turn on the SQL query logger within tests.')
+    parser.add_argument(
+        '--parallel', dest='parallel', nargs='?', default=1, type=int,
+        const=default_test_processes(),
+        help='Run tests in parallel processes.')
+
     options = parser.parse_args()
 
     # mock is a required dependency
@@ -441,6 +451,6 @@ if __name__ == "__main__":
         failures = django_tests(options.verbosity, options.interactive,
                                 options.failfast, options.keepdb,
                                 options.reverse, options.modules,
-                                options.debug_sql)
+                                options.debug_sql, options.parallel)
         if failures:
             sys.exit(bool(failures))
