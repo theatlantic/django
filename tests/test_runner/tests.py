@@ -360,8 +360,12 @@ class SetupDatabasesTests(unittest.TestCase):
                 'ENGINE': 'django.db.backends.dummy',
             },
         })
-        self.runner_instance.setup_databases()
-        self.assertEqual(serialize, [True])
+        with mock.patch('django.db.backends.dummy.base.DatabaseCreation') as mocked_db_creation:
+            with mock.patch('django.test.runner.connections', new=tested_connections):
+                self.runner_instance.setup_databases()
+        mocked_db_creation.return_value.create_test_db.assert_called_once_with(
+            verbosity=0, autoclobber=False, serialize=True, keepdb=False
+        )
 
     def test_serialized_off(self):
         serialize = []
@@ -374,8 +378,12 @@ class SetupDatabasesTests(unittest.TestCase):
                 'TEST': {'SERIALIZE': False},
             },
         })
-        self.runner_instance.setup_databases()
-        self.assertEqual(serialize, [False])
+        with mock.patch('django.db.backends.dummy.base.DatabaseCreation') as mocked_db_creation:
+            with mock.patch('django.test.runner.connections', new=tested_connections):
+                self.runner_instance.setup_databases()
+        mocked_db_creation.return_value.create_test_db.assert_called_once_with(
+            verbosity=0, autoclobber=False, serialize=False, keepdb=False
+        )
 
 
 class DeprecationDisplayTest(AdminScriptTestCase):
