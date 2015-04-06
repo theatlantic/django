@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import copy
 from collections import OrderedDict
+from contextlib import contextmanager
 
 from django.apps import AppConfig
 from django.apps.registry import Apps, apps as global_apps
@@ -125,11 +126,9 @@ class ProjectState(object):
             related_models.add((app_label, model_name))
 
             # Unregister all related models
-            for rel_app_label, rel_model_name in related_models:
-                self.apps.unregister_model(rel_app_label, rel_model_name)
-            # Need to do it once all models are unregistered to avoid corrupting
-            # existing models' _meta
-            self.apps.clear_cache()
+            with self.apps.bulk_update():
+                for rel_app_label, rel_model_name in related_models:
+                    self.apps.unregister_model(rel_app_label, rel_model_name)
 
             states_to_be_rendered = []
             # Gather all models states of those models that will be rerendered.
@@ -249,27 +248,43 @@ class StateApps(Apps):
             else:
                 do_pending_lookups(model)
 
+    @contextmanager
+    def bulk_update(self):
+        # Avoid clearing each model's cache for each change. Instead, clear
+        # all caches when we're finished updating the model instances.
+        ready = self.ready
+        self.ready = False
+        try:
+            yield
+        finally:
+            self.ready = ready
+            self.clear_cache()
+
     def render_multiple(self, model_states):
         # We keep trying to render the models in a loop, ignoring invalid
         # base errors, until the size of the unrendered models doesn't
         # decrease by at least one, meaning there's a base dependency loop/
         # missing base.
-        unrendered_models = model_states
-        while unrendered_models:
-            new_unrendered_models = []
-            for model in unrendered_models:
-                try:
-                    model.render(self)
-                except InvalidBasesError:
-                    new_unrendered_models.append(model)
-            if len(new_unrendered_models) == len(unrendered_models):
-                raise InvalidBasesError(
-                    "Cannot resolve bases for %r\nThis can happen if you are inheriting models from an "
-                    "app with migrations (e.g. contrib.auth)\n in an app with no migrations; see "
-                    "https://docs.djangoproject.com/en/%s/topics/migrations/#dependencies "
-                    "for more" % (new_unrendered_models, get_docs_version())
-                )
-            unrendered_models = new_unrendered_models
+        if not model_states:
+            return
+        # Prevent that all model caches are expired for each render.
+        with self.bulk_update():
+            unrendered_models = model_states
+            while unrendered_models:
+                new_unrendered_models = []
+                for model in unrendered_models:
+                    try:
+                        model.render(self)
+                    except InvalidBasesError:
+                        new_unrendered_models.append(model)
+                if len(new_unrendered_models) == len(unrendered_models):
+                    raise InvalidBasesError(
+                        "Cannot resolve bases for %r\nThis can happen if you are inheriting models from an "
+                        "app with migrations (e.g. contrib.auth)\n in an app with no migrations; see "
+                        "https://docs.djangoproject.com/en/%s/topics/migrations/#dependencies "
+                        "for more" % (new_unrendered_models, get_docs_version())
+                    )
+                unrendered_models = new_unrendered_models
 
     def clone(self):
         """
