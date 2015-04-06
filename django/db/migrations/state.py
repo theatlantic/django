@@ -334,12 +334,13 @@ class ModelState(object):
         # Sanity-check that fields is NOT a dict. It must be ordered.
         if isinstance(self.fields, dict):
             raise ValueError("ModelState.fields cannot be a dict - it must be a list of 2-tuples.")
-        # Sanity-check that fields are NOT already bound to a model.
         for name, field in fields:
+            # Sanity-check that fields are NOT already bound to a model.
             if hasattr(field, 'model'):
                 raise ValueError(
                     'ModelState.fields cannot be bound to a model - "%s" is.' % name
                 )
+            # Sanity-check that relation fields are NOT referring to a model class.
 
     @cached_property
     def name_lower(self):
@@ -526,10 +527,10 @@ class ModelState(object):
         return self.__class__(
             app_label=self.app_label,
             name=self.name,
-            fields=[(name, copy.deepcopy(field)) for name, field in self.fields],
+            fields=list(self.fields),
             options=dict(self.options),
             bases=self.bases,
-            managers=list(self.construct_managers()),
+            managers=list(self.managers),
         )
 
     def render(self, apps):
