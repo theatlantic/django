@@ -44,7 +44,7 @@ class Join(object):
 
     """
     def __init__(self, table_name, parent_alias, table_alias, join_type,
-                 join_field, nullable):
+                 join_field, nullable, join_hints):
         # Join table
         self.table_name = table_name
         self.parent_alias = parent_alias
@@ -59,6 +59,7 @@ class Join(object):
         self.join_field = join_field
         # Is this join nullabled?
         self.nullable = nullable
+        self.join_hints = join_hints
 
     def as_sql(self, compiler, connection):
         """
@@ -71,7 +72,10 @@ class Join(object):
         alias_str = '' if self.table_alias == self.table_name else (' %s' % self.table_alias)
         qn = compiler.quote_name_unless_alias
         qn2 = connection.ops.quote_name
-        sql.append('%s %s%s ON (' % (self.join_type, qn(self.table_name), alias_str))
+
+        join_hint = '' if not self.join_hints else ' USE INDEX(%s)' % ', '.join(self.join_hints)
+
+        sql.append('%s %s%s%s ON (' % (self.join_type, qn(self.table_name), alias_str, join_hint))
         for index, (lhs_col, rhs_col) in enumerate(self.join_cols):
             if index != 0:
                 sql.append(' AND ')
@@ -88,6 +92,7 @@ class Join(object):
             extra_sql = 'AND (%s)' % extra_sql
             params.extend(extra_params)
             sql.append('%s' % extra_sql)
+
         sql.append(')')
         return ' '.join(sql), params
 
@@ -96,7 +101,7 @@ class Join(object):
         new_table_alias = change_map.get(self.table_alias, self.table_alias)
         return self.__class__(
             self.table_name, new_parent_alias, new_table_alias, self.join_type,
-            self.join_field, self.nullable)
+            self.join_field, self.nullable, self.join_hints)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
