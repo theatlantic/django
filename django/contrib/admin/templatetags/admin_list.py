@@ -8,6 +8,7 @@ from django.contrib.admin.utils import (lookup_field, display_for_field,
 from django.contrib.admin.views.main import (ALL_VAR, EMPTY_CHANGELIST_VALUE,
     ORDER_VAR, PAGE_VAR, SEARCH_VAR)
 from django.contrib.admin.templatetags.admin_static import static
+from django.contrib.admin.util import get_fields_from_path
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.urlresolvers import NoReverseMatch
 from django.db import models
@@ -323,7 +324,7 @@ def date_hierarchy(cl):
     """
     if cl.date_hierarchy:
         field_name = cl.date_hierarchy
-        field = cl.opts.get_field_by_name(field_name)[0]
+        field = get_fields_from_path(cl.model, field_name)[-1]
         dates_or_datetimes = 'datetimes' if isinstance(field, models.DateTimeField) else 'dates'
         year_field = '%s__year' % field_name
         month_field = '%s__month' % field_name
