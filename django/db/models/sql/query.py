@@ -189,6 +189,10 @@ class Query:
         # excluding annotation_select and extra_select.
         self.values_select = ()
 
+        # Index hinting
+        self.hints = {}
+        self.join_hints = {}
+
         # SQL annotation-related attributes
         # The _annotations will be an OrderedDict when used. Due to the cost
         # of creating OrderedDict this attribute is created lazily (in
@@ -320,6 +324,8 @@ class Query:
             obj._extra_select_cache = self._extra_select_cache.copy()
         if 'subq_aliases' in self.__dict__:
             obj.subq_aliases = self.subq_aliases.copy()
+        obj.hints = self.hints.copy()
+        obj.join_hints = self.join_hints.copy()
         obj.used_aliases = self.used_aliases.copy()
         obj._filtered_relations = self._filtered_relations.copy()
         # Clear the cached_property
@@ -1465,6 +1471,7 @@ class Query:
             connection = Join(
                 opts.db_table, alias, table_alias, INNER, join.join_field,
                 nullable, filtered_relation=filtered_relation,
+                join_hints=self.join_hints.get(opts.db_table)
             )
             reuse = can_reuse if join.m2m or reuse_with_filtered_relation else None
             alias = self.join(
@@ -1804,6 +1811,12 @@ class Query:
             self.extra_tables += tuple(tables)
         if order_by:
             self.extra_order_by = order_by
+
+    def add_hint(self, model, hint):
+        add_to_dict(self.hints, model, hint)
+
+    def add_join_hint(self, model, hint):
+        add_to_dict(self.join_hints, model, hint)
 
     def clear_deferred_loading(self):
         """Remove any fields from the deferred loading set."""
