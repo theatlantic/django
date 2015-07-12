@@ -526,6 +526,13 @@ class SQLCompiler(object):
                 # alias_map if they aren't in a join. That's OK. We skip them.
                 continue
             alias_str = '' if alias == name else (' %s' % alias)
+
+            join_hint = ''
+            if self.connection.vendor == 'mysql':
+                hint = self.query.join_hints.get(name)
+                if hint:
+                    join_hint = ' USE INDEX(%s)' % ', '.join(hint)
+
             if join_type and not first:
                 extra_cond = join_field.get_extra_restriction(
                     self.query.where_class, alias, lhs)
@@ -535,8 +542,8 @@ class SQLCompiler(object):
                     from_params.extend(extra_params)
                 else:
                     extra_sql = ""
-                result.append('%s %s%s ON ('
-                        % (join_type, qn(name), alias_str))
+                result.append('%s %s%s%s ON ('
+                        % (join_type, qn(name), alias_str, join_hint))
                 for index, (lhs_col, rhs_col) in enumerate(join_cols):
                     if index != 0:
                         result.append(' AND ')
@@ -546,6 +553,12 @@ class SQLCompiler(object):
             else:
                 connector = '' if first else ', '
                 result.append('%s%s%s' % (connector, qn(name), alias_str))
+
+            if self.connection.vendor == 'mysql':
+                for model, hint in self.query.hints.items():
+                    if model._meta.db_table == name:
+                        result.append(' USE INDEX (%s)' % ', '.join(hint))
+
             first = False
         for t in self.query.extra_tables:
             alias, unused = self.query.table_alias(t)
