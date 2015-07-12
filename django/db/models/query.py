@@ -389,7 +389,7 @@ class QuerySet:
         if self._result_cache is not None:
             return len(self._result_cache)
 
-        return self.query.get_count(using=self.db)
+        return self.without_hints().query.get_count(using=self.db)
 
     def get(self, *args, **kwargs):
         """
@@ -1141,6 +1141,25 @@ class QuerySet:
         """Select which database this QuerySet should execute against."""
         clone = self._chain()
         clone._db = alias
+        return clone
+
+    def with_hints(self, *args, **kwargs):
+        clone = self._clone()
+        for hint in args:
+            clone.query.add_hint(self.model, hint)
+        for db_table, hint in kwargs.items():
+            clone.query.add_join_hint(db_table, hint)
+            for alias, join in clone.query.alias_map.items():
+                if join.table_name == db_table:
+                    join.join_hints = {hint}
+        return clone
+
+    def without_hints(self):
+        clone = self._clone()
+        clone.query.hints = {}
+        clone.query.join_hints = {}
+        for alias, join in clone.query.alias_map.items():
+            join.join_hints = None
         return clone
 
     ###################################

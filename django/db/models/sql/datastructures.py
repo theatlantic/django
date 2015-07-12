@@ -41,7 +41,7 @@ class Join:
         - relabeled_clone()
     """
     def __init__(self, table_name, parent_alias, table_alias, join_type,
-                 join_field, nullable, filtered_relation=None):
+                 join_field, nullable, filtered_relation=None, join_hints=None):
         # Join table
         self.table_name = table_name
         self.parent_alias = parent_alias
@@ -57,6 +57,7 @@ class Join:
         # Is this join nullabled?
         self.nullable = nullable
         self.filtered_relation = filtered_relation
+        self.join_hints = join_hints
 
     def as_sql(self, compiler, connection):
         """
@@ -68,6 +69,11 @@ class Join:
         params = []
         qn = compiler.quote_name_unless_alias
         qn2 = connection.ops.quote_name
+
+        join_hint = ''
+        if connection.vendor == 'mysql':
+            if self.join_hints:
+                join_hint = ' USE INDEX(%s)' % ', '.join(self.join_hints)
 
         # Add a join condition for each pair of joining columns.
         for lhs_col, rhs_col in self.join_cols:
@@ -100,7 +106,7 @@ class Join:
             )
         on_clause_sql = ' AND '.join(join_conditions)
         alias_str = '' if self.table_alias == self.table_name else (' %s' % self.table_alias)
-        sql = '%s %s%s ON (%s)' % (self.join_type, qn(self.table_name), alias_str, on_clause_sql)
+        sql = '%s %s%s%s ON (%s)' % (self.join_type, qn(self.table_name), alias_str, join_hint, on_clause_sql)
         return sql, params
 
     def relabeled_clone(self, change_map):
@@ -114,6 +120,7 @@ class Join:
         return self.__class__(
             self.table_name, new_parent_alias, new_table_alias, self.join_type,
             self.join_field, self.nullable, filtered_relation=filtered_relation,
+            join_hints=self.join_hints
         )
 
     def equals(self, other, with_filtered_relation):

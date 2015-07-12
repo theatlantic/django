@@ -760,6 +760,12 @@ class SQLCompiler:
             clause_sql, clause_params = self.compile(from_clause)
             result.append(clause_sql)
             params.extend(clause_params)
+
+            if self.connection.vendor == 'mysql':
+                for model, hint in self.query.hints.items():
+                    if model._meta.db_table == from_clause.table_name:
+                        result.append(' USE INDEX (%s)' % ', '.join(hint))
+
         for t in self.query.extra_tables:
             alias, _ = self.query.table_alias(t)
             # Only add the alias if it's not already present (the table_alias()
