@@ -315,7 +315,7 @@ class QuerySet(object):
         if self._result_cache is not None:
             return len(self._result_cache)
 
-        return self.query.get_count(using=self.db)
+        return self.without_hints().query.get_count(using=self.db)
 
     def get(self, *args, **kwargs):
         """
@@ -877,6 +877,20 @@ class QuerySet(object):
         """
         clone = self._clone()
         clone._db = alias
+        return clone
+
+    def with_hints(self, *args, **kwargs):
+        clone = self._clone()
+        for hint in args:
+            clone.query.add_hint(self.model, hint)
+        for model, hint in kwargs.items():
+            clone.query.add_join_hint(model, hint)
+        return clone
+
+    def without_hints(self):
+        clone = self._clone()
+        clone.query.hints = {}
+        clone.query.join_hints = {}
         return clone
 
     ###################################

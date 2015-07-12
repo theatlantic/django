@@ -155,6 +155,10 @@ class Query(object):
         self.select_for_update_nowait = False
         self.select_related = False
 
+        # Index hinting
+        self.hints = {}
+        self.join_hints = {}
+
         # SQL annotation-related attributes
         # The _annotations will be an OrderedDict when used. Due to the cost
         # of creating OrderedDict this attribute is created lazily (in
@@ -311,6 +315,8 @@ class Query(object):
             obj.alias_prefix = self.alias_prefix
         if 'subq_aliases' in self.__dict__:
             obj.subq_aliases = self.subq_aliases.copy()
+        obj.hints = self.hints
+        obj.join_hints = self.join_hints
 
         obj.__dict__.update(kwargs)
         if hasattr(obj, '_setup_query'):
@@ -1480,7 +1486,8 @@ class Query(object):
                 nullable = self.is_nullable(join.join_field)
             else:
                 nullable = True
-            connection = Join(opts.db_table, alias, None, INNER, join.join_field, nullable)
+            connection = Join(opts.db_table, alias, None, INNER, join.join_field, nullable,
+                self.join_hints.get(opts.db_table))
             reuse = can_reuse if join.m2m else None
             alias = self.join(connection, reuse=reuse)
             joins.append(alias)
@@ -1809,6 +1816,12 @@ class Query(object):
             self.extra_tables += tuple(tables)
         if order_by:
             self.extra_order_by = order_by
+
+    def add_hint(self, model, hint):
+        add_to_dict(self.hints, model, hint)
+
+    def add_join_hint(self, model, hint):
+        add_to_dict(self.join_hints, model, hint)
 
     def clear_deferred_loading(self):
         """
