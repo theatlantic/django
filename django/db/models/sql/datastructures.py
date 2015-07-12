@@ -41,7 +41,7 @@ class Join(object):
         - relabeled_clone()
     """
     def __init__(self, table_name, parent_alias, table_alias, join_type,
-                 join_field, nullable):
+                 join_field, nullable, join_hints):
         # Join table
         self.table_name = table_name
         self.parent_alias = parent_alias
@@ -56,6 +56,7 @@ class Join(object):
         self.join_field = join_field
         # Is this join nullabled?
         self.nullable = nullable
+        self.join_hints = join_hints
 
     def as_sql(self, compiler, connection):
         """
@@ -67,6 +68,11 @@ class Join(object):
         params = []
         qn = compiler.quote_name_unless_alias
         qn2 = connection.ops.quote_name
+
+        join_hint = ''
+        if connection.vendor == 'mysql':
+            if self.join_hints:
+                join_hint = ' USE INDEX(%s)' % ', '.join(self.join_hints)
 
         # Add a join condition for each pair of joining columns.
         for index, (lhs_col, rhs_col) in enumerate(self.join_cols):
@@ -95,7 +101,7 @@ class Join(object):
             )
         on_clause_sql = ' AND '.join(join_conditions)
         alias_str = '' if self.table_alias == self.table_name else (' %s' % self.table_alias)
-        sql = '%s %s%s ON (%s)' % (self.join_type, qn(self.table_name), alias_str, on_clause_sql)
+        sql = '%s %s%s ON (%s)%s' % (self.join_type, qn(self.table_name), alias_str, on_clause_sql, join_hint)
         return sql, params
 
     def relabeled_clone(self, change_map):
@@ -103,7 +109,7 @@ class Join(object):
         new_table_alias = change_map.get(self.table_alias, self.table_alias)
         return self.__class__(
             self.table_name, new_parent_alias, new_table_alias, self.join_type,
-            self.join_field, self.nullable)
+            self.join_field, self.nullable, self.join_hints)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
