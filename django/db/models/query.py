@@ -883,14 +883,19 @@ class QuerySet(object):
         clone = self._clone()
         for hint in args:
             clone.query.add_hint(self.model, hint)
-        for model, hint in kwargs.items():
-            clone.query.add_join_hint(model, hint)
+        for db_table, hint in kwargs.items():
+            clone.query.add_join_hint(db_table, hint)
+            for alias, join in six.iteritems(clone.query.alias_map):
+                if join.table_name == db_table:
+                    join.join_hints = {hint}
         return clone
 
     def without_hints(self):
         clone = self._clone()
         clone.query.hints = {}
         clone.query.join_hints = {}
+        for alias, join in six.iteritems(clone.query.alias_map):
+            join.join_hints = None
         return clone
 
     ###################################

@@ -315,8 +315,8 @@ class Query(object):
             obj.alias_prefix = self.alias_prefix
         if 'subq_aliases' in self.__dict__:
             obj.subq_aliases = self.subq_aliases.copy()
-        obj.hints = self.hints
-        obj.join_hints = self.join_hints
+        obj.hints = self.hints.copy()
+        obj.join_hints = self.join_hints.copy()
 
         obj.__dict__.update(kwargs)
         if hasattr(obj, '_setup_query'):
