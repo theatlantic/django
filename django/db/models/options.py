@@ -368,7 +368,7 @@ class Options(object):
                     # or as part of validation.
                     return swapped_for
 
-                if '%s.%s' % (swapped_label, swapped_object.lower()) not in (None, model_label):
+                if '%s.%s' % (swapped_label, swapped_object.lower()) != model_label:
                     return swapped_for
         return None
 
