@@ -1500,6 +1500,8 @@ correctly:
 
     $ pip install tblib
 
+This feature isn't available on Oracle.
+
 .. warning::
 
     When test parallelization is enabled and a test fails, Django may be
