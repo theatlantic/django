@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 import django
 from django.apps import apps
 from django.conf import settings
-from django.db import connection
+from django.db import connection, connections
 from django.test import TestCase, TransactionTestCase
 from django.test.runner import default_test_processes
 from django.test.utils import get_runner
@@ -113,8 +113,10 @@ def get_installed():
 
 def setup(verbosity, test_labels, parallel):
     if verbosity >= 1:
-        print("Testing against Django installed in '%s' with %d processes" % (
-            os.path.dirname(django.__file__), parallel))
+        msg = "Testing against Django installed in '%s'" % os.path.dirname(django.__file__)
+        if parallel > 1:
+            msg += " with %d processes" % parallel
+        print(msg)
 
     # Force declaring available_apps in TransactionTestCase for faster tests.
     def no_available_apps(self):
@@ -233,6 +235,17 @@ def teardown(state):
         setattr(settings, key, value)
 
 
+def actual_test_processes(parallel):
+    if parallel == 0:
+        # This doesn't work before django.setup() on some databases.
+        if all(conn.features.can_clone_databases for conn in connections.all()):
+            return default_test_processes()
+        else:
+            return 1
+    else:
+        return parallel
+
+
 def django_tests(verbosity, interactive, failfast, keepdb, reverse,
                  test_labels, debug_sql, parallel):
     state = setup(verbosity, test_labels, parallel)
@@ -255,7 +268,7 @@ def django_tests(verbosity, interactive, failfast, keepdb, reverse,
         keepdb=keepdb,
         reverse=reverse,
         debug_sql=debug_sql,
-        parallel=parallel,
+        parallel=actual_test_processes(parallel),
     )
     # Catch warnings thrown in test DB setup -- remove in Django 1.9
     with warnings.catch_warnings():
@@ -414,7 +427,7 @@ if __name__ == "__main__":
         '--debug-sql', action='store_true', dest='debug_sql', default=False,
         help='Turn on the SQL query logger within tests.')
     parser.add_argument(
-        '--parallel', dest='parallel', nargs='?', default=1, type=int,
+        '--parallel', dest='parallel', nargs='?', default=0, type=int,
         const=default_test_processes(),
         help='Run tests in parallel processes.')
 

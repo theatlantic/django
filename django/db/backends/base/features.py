@@ -207,6 +207,10 @@ class BaseDatabaseFeatures(object):
     # Does the backend support "select for update" queries with limit (and offset)?
     supports_select_for_update_with_limit = True
 
+    # Can the backend clone databases for parallel test execution?
+    # Defaults to False to allow third-party backends to opt-in.
+    can_clone_databases = False
+
     def __init__(self, connection):
         self.connection = connection
 
