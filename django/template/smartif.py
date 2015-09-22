@@ -56,11 +56,16 @@ def infix(bp, func):
         def eval(self, context):
             try:
                 return func(context, self.first, self.second)
-            except Exception:
+            except (TypeError, AttributeError, KeyError, ValueError, IndexError):
                 # Templates shouldn't throw exceptions when rendering.  We are
                 # most likely to get exceptions for things like {% if foo in bar
                 # %} where 'bar' does not support 'in', so default to False
                 return False
+            except Exception as e:
+                if getattr(e, 'silent_variable_failure', False):
+                    return False
+                else:
+                    raise
 
     return Operator
 
@@ -81,8 +86,13 @@ def prefix(bp, func):
         def eval(self, context):
             try:
                 return func(context, self.first)
-            except Exception:
+            except (TypeError, AttributeError, KeyError, ValueError, IndexError):
                 return False
+            except Exception as e:
+                if getattr(e, 'silent_variable_failure', False):
+                    return False
+                else:
+                    raise
 
     return Operator
 
