@@ -58,6 +58,7 @@ def update_contenttypes(app_config, verbosity=2, interactive=True, using=DEFAULT
     # Confirm that the content type is stale before deletion.
     if to_remove:
         if interactive:
+            return
             content_type_display = '\n'.join(
                 '    %s | %s' % (ct.app_label, ct.model)
                 for ct in to_remove
