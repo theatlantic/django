@@ -101,7 +101,7 @@ class Join(object):
             )
         on_clause_sql = ' AND '.join(join_conditions)
         alias_str = '' if self.table_alias == self.table_name else (' %s' % self.table_alias)
-        sql = '%s %s%s ON (%s)%s' % (self.join_type, qn(self.table_name), alias_str, on_clause_sql, join_hint)
+        sql = '%s %s%s%s ON (%s)' % (self.join_type, qn(self.table_name), alias_str, join_hint, on_clause_sql)
         return sql, params
 
     def relabeled_clone(self, change_map):
